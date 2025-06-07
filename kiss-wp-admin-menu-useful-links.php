@@ -303,18 +303,43 @@ function kwamul_options_page_html() {
                                 settings_fields( KWAMUL_SETTINGS_GROUP );
                                 do_settings_sections( KWAMUL_SETTINGS_PAGE_SLUG );
                         }
-                        submit_button( __( 'Save Links', 'kiss-wp-admin-menu-useful-links' ) );
+                        // Use a custom name/id so form.submit() remains callable.
+                        submit_button( __( 'Save Links', 'kiss-wp-admin-menu-useful-links' ), 'primary', 'kwamul_submit' );
                         ?>
                 </form>
                 <script>
                 document.addEventListener('DOMContentLoaded', function() {
                         var tabs = document.querySelectorAll('.kwamul-tab');
                         var form = document.getElementById('kwamul-options-form');
+                        var submitBtn = document.getElementById('kwamul_submit');
+
+                        if (submitBtn) {
+                                submitBtn.addEventListener('click', function() {
+                                        localStorage.setItem('kwamul_last_save', Date.now().toString());
+                                });
+                        }
+
+                        function changeTab(target) {
+                                var url = new URL(window.location.href);
+                                if (url.searchParams.get('tab') !== target) {
+                                        url.searchParams.set('tab', target);
+                                        window.location.href = url.toString();
+                                }
+                        }
+
                         tabs.forEach(function(tab) {
                                 tab.addEventListener('click', function(e) {
                                         e.preventDefault();
-                                        if (form) {
-                                                localStorage.setItem('kwamul_next_tab', this.getAttribute('data-tab'));
+                                        var nextTab = this.getAttribute('data-tab');
+                                        localStorage.setItem('kwamul_next_tab', nextTab);
+
+                                        var lastSave = parseInt(localStorage.getItem('kwamul_last_save') || '0', 10);
+                                        var now = Date.now();
+
+                                        if (!form || now - lastSave < 5000) {
+                                                changeTab(nextTab);
+                                        } else {
+                                                localStorage.setItem('kwamul_last_save', now.toString());
                                                 form.submit();
                                         }
                                 });
@@ -323,11 +348,7 @@ function kwamul_options_page_html() {
                         var nextTab = localStorage.getItem('kwamul_next_tab');
                         if (nextTab) {
                                 localStorage.removeItem('kwamul_next_tab');
-                                var url = new URL(window.location.href);
-                                if (url.searchParams.get('tab') !== nextTab) {
-                                        url.searchParams.set('tab', nextTab);
-                                        window.location.href = url.toString();
-                                }
+                                changeTab(nextTab);
                         }
                 });
                 </script>

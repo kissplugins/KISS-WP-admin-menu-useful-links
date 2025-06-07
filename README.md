@@ -11,6 +11,10 @@ After activation, navigate to **Settings → KISS Useful Links** to configure up
 
 ## Changelog
 
+### 1.1.1
+- Fixed JavaScript error when switching tabs.
+- Tab switching now bypasses auto-save if changes were saved in the last five seconds.
+
 ### 1.1
 - Added support for managing separate frontend links displayed while in the dashboard.
 - Added settings page tabs for switching between Backend Links and Frontend Links.
