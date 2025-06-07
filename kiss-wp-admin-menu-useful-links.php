@@ -33,26 +33,26 @@ define( 'KWAMUL_FRONTEND_SECTION_PAGE', 'kwamul_frontend_settings_page' );
  */
 function kwamul_plugin_activate() {
         // Check if the option already exists. If not (false), set defaults.
-        if ( false === get_option( KWAMUL_OPTION_NAME ) ) {
-                $default_options = [
-                        'link_1_label' => __( 'Posts', 'kiss-wp-admin-menu-useful-links' ),
-                        'link_1_url'   => '/wp-admin/edit.php',
-                        'link_2_label' => __( 'Pages', 'kiss-wp-admin-menu-useful-links' ),
-                        'link_2_url'   => '/wp-admin/edit.php?post_type=page',
-                        'link_3_label' => __( 'Media Library', 'kiss-wp-admin-menu-useful-links' ),
-                        'link_3_url'   => '/wp-admin/upload.php',
-                        'link_4_label' => __( 'Blog', 'kiss-wp-admin-menu-useful-links' ),
-                        'link_4_url'   => '/blog',
-                        'link_5_label' => '',
-                        'link_5_url'   => '',
-                ];
-                update_option( KWAMUL_OPTION_NAME, $default_options );
-        }
+       if ( false === get_option( KWAMUL_OPTION_NAME ) ) {
+               $default_options = [
+                       'link_1_label' => __( 'Posts', 'kiss-wp-admin-menu-useful-links' ),
+                       'link_1_url'   => '/wp-admin/edit.php',
+                       'link_2_label' => __( 'Pages', 'kiss-wp-admin-menu-useful-links' ),
+                       'link_2_url'   => '/wp-admin/edit.php?post_type=page',
+                       'link_3_label' => __( 'Media Library', 'kiss-wp-admin-menu-useful-links' ),
+                       'link_3_url'   => '/wp-admin/upload.php',
+                       'link_4_label' => '',
+                       'link_4_url'   => '',
+                       'link_5_label' => '',
+                       'link_5_url'   => '',
+               ];
+               update_option( KWAMUL_OPTION_NAME, $default_options );
+       }
 
        if ( false === get_option( KWAMUL_FRONTEND_OPTION_NAME ) ) {
                $default_front_options = [
-                       'link_1_label' => '',
-                       'link_1_url'   => '',
+                       'link_1_label' => __( 'Blog', 'kiss-wp-admin-menu-useful-links' ),
+                       'link_1_url'   => '/blog',
                        'link_2_label' => '',
                        'link_2_url'   => '',
                        'link_3_label' => '',
@@ -223,22 +223,26 @@ function kwamul_render_text_field( $args ) {
  *
  * @param array $args Arguments for the field.
  */
+// NOTE TO FUTURE MAINTAINERS: These URL fields intentionally use a plain
+// text input and sanitize_text_field() to allow relative paths. Do NOT
+// refactor this to use <input type="url"> or esc_url_raw unless explicitly
+// requested.
 function kwamul_render_url_field( $args ) {
-	$options     = get_option( $args['option_name'], [] ); // Default to empty array
-	$field_key   = $args['field_key'];
-	$value       = isset( $options[ $field_key ] ) ? $options[ $field_key ] : '';
-	$description = isset( $args['description'] ) ? $args['description'] : '';
-	?>
-	<input type="url"
-		   id="<?php echo esc_attr( $args['label_for'] ); ?>"
-		   name="<?php echo esc_attr( $args['option_name'] . '[' . $field_key . ']' ); ?>"
-		   value="<?php echo esc_attr( $value ); ?>"
-		   class="regular-text"
-		   placeholder="e.g., /wp-admin/edit.php or https://example.com">
-	<?php if ( ! empty( $description ) ) : ?>
-		<p class="description"><?php echo esc_html( $description ); ?></p>
-	<?php endif; ?>
-	<?php
+        $options     = get_option( $args['option_name'], [] ); // Default to empty array
+        $field_key   = $args['field_key'];
+        $value       = isset( $options[ $field_key ] ) ? $options[ $field_key ] : '';
+        $description = isset( $args['description'] ) ? $args['description'] : '';
+        ?>
+        <input type="text"
+                   id="<?php echo esc_attr( $args['label_for'] ); ?>"
+                   name="<?php echo esc_attr( $args['option_name'] . '[' . $field_key . ']' ); ?>"
+                   value="<?php echo esc_attr( $value ); ?>"
+                   class="regular-text"
+                   placeholder="e.g., /wp-admin/edit.php or https://example.com">
+        <?php if ( ! empty( $description ) ) : ?>
+                <p class="description"><?php echo esc_html( $description ); ?></p>
+        <?php endif; ?>
+        <?php
 }
 
 /**
@@ -260,11 +264,12 @@ function kwamul_sanitize_links_options( $input ) {
 				$sanitized_input[ $label_key ] = ''; // Ensure key exists
 			}
 
-			if ( isset( $input[ $url_key ] ) ) {
-				$sanitized_input[ $url_key ] = esc_url_raw( trim( $input[ $url_key ] ) );
-			} else {
-				$sanitized_input[ $url_key ] = ''; // Ensure key exists
-			}
+                       if ( isset( $input[ $url_key ] ) ) {
+                               // NOTE: Using sanitize_text_field to allow relative paths. Do not refactor.
+                               $sanitized_input[ $url_key ] = sanitize_text_field( $input[ $url_key ] );
+                       } else {
+                               $sanitized_input[ $url_key ] = ''; // Ensure key exists
+                       }
 		}
 	}
 	return $sanitized_input;
@@ -281,15 +286,15 @@ function kwamul_options_page_html() {
         ?>
         <div class="wrap">
                 <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
-                <h2 class="nav-tab-wrapper">
-                        <a href="<?php echo esc_url( add_query_arg( 'tab', 'backend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab <?php echo 'frontend' !== $current_tab ? 'nav-tab-active' : ''; ?>">
+               <h2 class="nav-tab-wrapper">
+                        <a href="<?php echo esc_url( add_query_arg( 'tab', 'backend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'frontend' !== $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="backend">
                                 <?php esc_html_e( 'Backend Links', 'kiss-wp-admin-menu-useful-links' ); ?>
                         </a>
-                        <a href="<?php echo esc_url( add_query_arg( 'tab', 'frontend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab <?php echo 'frontend' === $current_tab ? 'nav-tab-active' : ''; ?>">
+                        <a href="<?php echo esc_url( add_query_arg( 'tab', 'frontend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'frontend' === $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="frontend">
                                 <?php esc_html_e( 'Frontend Links', 'kiss-wp-admin-menu-useful-links' ); ?>
                         </a>
                 </h2>
-                <form action="options.php" method="post">
+                <form id="kwamul-options-form" action="options.php" method="post">
                         <?php
                         if ( 'frontend' === $current_tab ) {
                                 settings_fields( KWAMUL_FRONTEND_SETTINGS_GROUP );
@@ -301,6 +306,31 @@ function kwamul_options_page_html() {
                         submit_button( __( 'Save Links', 'kiss-wp-admin-menu-useful-links' ) );
                         ?>
                 </form>
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                        var tabs = document.querySelectorAll('.kwamul-tab');
+                        var form = document.getElementById('kwamul-options-form');
+                        tabs.forEach(function(tab) {
+                                tab.addEventListener('click', function(e) {
+                                        e.preventDefault();
+                                        if (form) {
+                                                localStorage.setItem('kwamul_next_tab', this.getAttribute('data-tab'));
+                                                form.submit();
+                                        }
+                                });
+                        });
+
+                        var nextTab = localStorage.getItem('kwamul_next_tab');
+                        if (nextTab) {
+                                localStorage.removeItem('kwamul_next_tab');
+                                var url = new URL(window.location.href);
+                                if (url.searchParams.get('tab') !== nextTab) {
+                                        url.searchParams.set('tab', nextTab);
+                                        window.location.href = url.toString();
+                                }
+                        }
+                });
+                </script>
         </div>
         <?php
 }

@@ -14,7 +14,8 @@ After activation, navigate to **Settings → KISS Useful Links** to configure up
 ### 1.1
 - Added support for managing separate frontend links displayed while in the dashboard.
 - Added settings page tabs for switching between Backend Links and Frontend Links.
-- Introduced default Backend Links for Media Library and Blog.
+- Default Backend Links now include Media Library. Blog link is provided in the Frontend Links section by default.
+- Switching between tabs automatically saves the current form values.
 
 ### 1.0
 - Initial release with support for up to five custom backend links.
