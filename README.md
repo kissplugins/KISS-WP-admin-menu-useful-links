@@ -1,7 +1,7 @@
 # KISS WP admin menu useful links
 
 **Contributors:** KISS Plugins
-**Version:** 1.00
+**Version:** 1.1
 **License:** GPLv2 or later
 **License URI:** https://www.gnu.org/licenses/gpl-2.0.html
 **Plugin URI:** (Add your plugin's homepage URL here if you have one)
