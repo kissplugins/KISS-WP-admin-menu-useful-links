@@ -106,7 +106,7 @@ function kwamul_settings_init() {
 		add_settings_field(
 			"kwamul_link_{$i}_url",
 			sprintf( __( 'Link %d URL', 'kiss-wp-admin-menu-useful-links' ), $i ),
-			'kwamul_render_url_field',
+			'kwamul_render_url_field', // This function is updated below
 			KWAMUL_SETTINGS_PAGE_SLUG,
 			'kwamul_main_section',
 			[
@@ -156,7 +156,7 @@ function kwamul_render_text_field( $args ) {
 }
 
 /**
- * Renders a URL input field for settings.
+ * Renders a URL input field for settings. THIS FUNCTION IS UPDATED.
  *
  * @param array $args Arguments for the field.
  */
@@ -166,7 +166,7 @@ function kwamul_render_url_field( $args ) {
 	$value       = isset( $options[ $field_key ] ) ? $options[ $field_key ] : '';
 	$description = isset( $args['description'] ) ? $args['description'] : '';
 	?>
-	<input type="url"
+	<input type="text"  <?php // CHANGED from type="url" to type="text" ?>
 		   id="<?php echo esc_attr( $args['label_for'] ); ?>"
 		   name="<?php echo esc_attr( $args['option_name'] . '[' . $field_key . ']' ); ?>"
 		   value="<?php echo esc_attr( $value ); ?>"
@@ -256,12 +256,6 @@ function kwamul_add_custom_admin_bar_links( $wp_admin_bar ) {
 
 		if ( ! empty( $label ) && ! empty( $url ) ) {
 			$final_url = $url;
-            // If URL starts with /wp-admin/ or is just a path segment like 'edit.php'
-            // it's likely an admin URL. For consistency, let admin_url() resolve it.
-            // However, users might want to link to /wp-login.php?action=logout or other relative paths.
-            // Using esc_url() handles both absolute and relative paths well for href.
-            // If the provided URL is relative like "/wp-admin/edit.php", esc_url will make it site_url() + path.
-            // If it's a full URL, it will be used as is after sanitization.
 
 			$wp_admin_bar->add_node(
 				[
