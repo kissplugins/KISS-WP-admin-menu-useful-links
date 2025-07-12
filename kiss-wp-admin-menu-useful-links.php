@@ -3,7 +3,7 @@
  * Plugin Name:       KISS WP admin menu useful links
  * Plugin URI:        https://example.com/kiss-wp-admin-menu-useful-links
  * Description:       Adds custom user-defined links to the bottom of the Site Name menu in the WP admin toolbar on the front end.
- * Version:           1.1
+ * Version:           1.2
  * Author:            KISS Plugins
  * Author URI:        https://example.com/kiss-plugins
  * License:           GPL v2 or later
@@ -35,37 +35,76 @@ function kwamul_plugin_activate() {
         // Check if the option already exists. If not (false), set defaults.
        if ( false === get_option( KWAMUL_OPTION_NAME ) ) {
                $default_options = [
-                       'link_1_label' => __( 'Posts', 'kiss-wp-admin-menu-useful-links' ),
-                       'link_1_url'   => '/wp-admin/edit.php',
-                       'link_2_label' => __( 'Pages', 'kiss-wp-admin-menu-useful-links' ),
-                       'link_2_url'   => '/wp-admin/edit.php?post_type=page',
-                       'link_3_label' => __( 'Media Library', 'kiss-wp-admin-menu-useful-links' ),
-                       'link_3_url'   => '/wp-admin/upload.php',
-                       'link_4_label' => '',
-                       'link_4_url'   => '',
-                       'link_5_label' => '',
-                       'link_5_url'   => '',
+                       'link_1_label'    => __( 'Posts', 'kiss-wp-admin-menu-useful-links' ),
+                       'link_1_url'      => '/wp-admin/edit.php',
+                       'link_1_priority' => 1,
+                       'link_2_label'    => __( 'Pages', 'kiss-wp-admin-menu-useful-links' ),
+                       'link_2_url'      => '/wp-admin/edit.php?post_type=page',
+                       'link_2_priority' => 2,
+                       'link_3_label'    => __( 'Media Library', 'kiss-wp-admin-menu-useful-links' ),
+                       'link_3_url'      => '/wp-admin/upload.php',
+                       'link_3_priority' => 3,
+                       'link_4_label'    => '',
+                       'link_4_url'      => '',
+                       'link_4_priority' => 4,
+                       'link_5_label'    => '',
+                       'link_5_url'      => '',
+                       'link_5_priority' => 5,
                ];
                update_option( KWAMUL_OPTION_NAME, $default_options );
        }
 
        if ( false === get_option( KWAMUL_FRONTEND_OPTION_NAME ) ) {
                $default_front_options = [
-                       'link_1_label' => __( 'Blog', 'kiss-wp-admin-menu-useful-links' ),
-                       'link_1_url'   => '/blog',
-                       'link_2_label' => '',
-                       'link_2_url'   => '',
-                       'link_3_label' => '',
-                       'link_3_url'   => '',
-                       'link_4_label' => '',
-                       'link_4_url'   => '',
-                       'link_5_label' => '',
-                       'link_5_url'   => '',
+                       'link_1_label'    => __( 'Blog', 'kiss-wp-admin-menu-useful-links' ),
+                       'link_1_url'      => '/blog',
+                       'link_1_priority' => 1,
+                       'link_2_label'    => '',
+                       'link_2_url'      => '',
+                       'link_2_priority' => 2,
+                       'link_3_label'    => '',
+                       'link_3_url'      => '',
+                       'link_3_priority' => 3,
+                       'link_4_label'    => '',
+                       'link_4_url'      => '',
+                       'link_4_priority' => 4,
+                       'link_5_label'    => '',
+                       'link_5_url'      => '',
+                       'link_5_priority' => 5,
                ];
                update_option( KWAMUL_FRONTEND_OPTION_NAME, $default_front_options );
        }
 }
 register_activation_hook( __FILE__, 'kwamul_plugin_activate' );
+
+/**
+ * Ensures priority fields exist for installations prior to version 1.2.
+ */
+function kwamul_maybe_upgrade_options() {
+       $backend  = get_option( KWAMUL_OPTION_NAME, [] );
+       $frontend = get_option( KWAMUL_FRONTEND_OPTION_NAME, [] );
+       $changed  = false;
+
+       for ( $i = 1; $i <= KWAMUL_MAX_LINKS; $i++ ) {
+               $priority_key = "link_{$i}_priority";
+
+               if ( ! isset( $backend[ $priority_key ] ) ) {
+                       $backend[ $priority_key ] = $i;
+                       $changed                 = true;
+               }
+
+               if ( ! isset( $frontend[ $priority_key ] ) ) {
+                       $frontend[ $priority_key ] = $i;
+                       $changed                  = true;
+               }
+       }
+
+       if ( $changed ) {
+               update_option( KWAMUL_OPTION_NAME, $backend );
+               update_option( KWAMUL_FRONTEND_OPTION_NAME, $frontend );
+       }
+}
+add_action( 'plugins_loaded', 'kwamul_maybe_upgrade_options' );
 
 
 /**
@@ -145,6 +184,20 @@ function kwamul_settings_init() {
                );
 
                add_settings_field(
+                       "kwamul_link_{$i}_priority",
+                       sprintf( __( 'Link %d Priority', 'kiss-wp-admin-menu-useful-links' ), $i ),
+                       'kwamul_render_priority_field',
+                       KWAMUL_SETTINGS_PAGE_SLUG,
+                       'kwamul_main_section',
+                       [
+                               'option_name' => KWAMUL_OPTION_NAME,
+                               'field_key'   => "link_{$i}_priority",
+                               'label_for'   => "kwamul_link_{$i}_priority_id",
+                               'description' => __( 'Lower numbers appear first.', 'kiss-wp-admin-menu-useful-links' ),
+                       ]
+               );
+
+               add_settings_field(
                        "kwamul_front_link_{$i}_label",
                        sprintf( __( 'Link %d Label', 'kiss-wp-admin-menu-useful-links' ), $i ),
                        'kwamul_render_text_field',
@@ -169,6 +222,20 @@ function kwamul_settings_init() {
                                'field_key'   => "link_{$i}_url",
                                'label_for'   => "kwamul_front_link_{$i}_url_id",
                                'description' => sprintf( __( 'Enter the full URL for frontend link %d.', 'kiss-wp-admin-menu-useful-links' ), $i ),
+                       ]
+               );
+
+               add_settings_field(
+                       "kwamul_front_link_{$i}_priority",
+                       sprintf( __( 'Link %d Priority', 'kiss-wp-admin-menu-useful-links' ), $i ),
+                       'kwamul_render_priority_field',
+                       KWAMUL_FRONTEND_SECTION_PAGE,
+                       'kwamul_frontend_section',
+                       [
+                               'option_name' => KWAMUL_FRONTEND_OPTION_NAME,
+                               'field_key'   => "link_{$i}_priority",
+                               'label_for'   => "kwamul_front_link_{$i}_priority_id",
+                               'description' => __( 'Lower numbers appear first.', 'kiss-wp-admin-menu-useful-links' ),
                        ]
                );
        }
@@ -246,6 +313,28 @@ function kwamul_render_url_field( $args ) {
 }
 
 /**
+ * Renders a number input field for priority.
+ *
+ * @param array $args Arguments for the field.
+ */
+function kwamul_render_priority_field( $args ) {
+       $options     = get_option( $args['option_name'], [] );
+       $field_key   = $args['field_key'];
+       $value       = isset( $options[ $field_key ] ) ? (int) $options[ $field_key ] : 0;
+       $description = isset( $args['description'] ) ? $args['description'] : '';
+       ?>
+       <input type="number"
+              id="<?php echo esc_attr( $args['label_for'] ); ?>"
+              name="<?php echo esc_attr( $args['option_name'] . '[' . $field_key . ']' ); ?>"
+              value="<?php echo esc_attr( $value ); ?>"
+              class="small-text">
+       <?php if ( ! empty( $description ) ) : ?>
+               <p class="description"><?php echo esc_html( $description ); ?></p>
+       <?php endif; ?>
+       <?php
+}
+
+/**
  * Sanitizes the link options before saving.
  *
  * @param array $input The input array from the settings form.
@@ -257,6 +346,7 @@ function kwamul_sanitize_links_options( $input ) {
        for ( $i = 1; $i <= KWAMUL_MAX_LINKS; $i++ ) {
                $label_key = "link_{$i}_label";
                $url_key   = "link_{$i}_url";
+               $priority_key = "link_{$i}_priority";
 
 			if ( isset( $input[ $label_key ] ) ) {
 				$sanitized_input[ $label_key ] = sanitize_text_field( $input[ $label_key ] );
@@ -270,9 +360,15 @@ function kwamul_sanitize_links_options( $input ) {
                        } else {
                                $sanitized_input[ $url_key ] = ''; // Ensure key exists
                        }
-		}
-	}
-	return $sanitized_input;
+
+                       if ( isset( $input[ $priority_key ] ) ) {
+                               $sanitized_input[ $priority_key ] = intval( $input[ $priority_key ] );
+                       } else {
+                               $sanitized_input[ $priority_key ] = $i;
+                       }
+                }
+        }
+        return $sanitized_input;
 }
 
 /**
@@ -286,6 +382,9 @@ function kwamul_options_page_html() {
         ?>
         <div class="wrap">
                 <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
+               <p>
+                       <?php esc_html_e( 'Use the fields below to define up to five custom links. Lower priority numbers appear first.', 'kiss-wp-admin-menu-useful-links' ); ?>
+               </p>
                <h2 class="nav-tab-wrapper">
                         <a href="<?php echo esc_url( add_query_arg( 'tab', 'backend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'frontend' !== $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="backend">
                                 <?php esc_html_e( 'Backend Links', 'kiss-wp-admin-menu-useful-links' ); ?>
@@ -374,15 +473,39 @@ function kwamul_add_custom_admin_bar_links( $wp_admin_bar ) {
 		return;
 	}
 
-	for ( $i = 1; $i <= KWAMUL_MAX_LINKS; $i++ ) {
-		$label_key = "link_{$i}_label";
-		$url_key   = "link_{$i}_url";
+       $links = [];
+       for ( $i = 1; $i <= KWAMUL_MAX_LINKS; $i++ ) {
+               $label_key    = "link_{$i}_label";
+               $url_key      = "link_{$i}_url";
+               $priority_key = "link_{$i}_priority";
 
-		$label = isset( $options[ $label_key ] ) ? trim( $options[ $label_key ] ) : '';
-		$url   = isset( $options[ $url_key ] ) ? trim( $options[ $url_key ] ) : '';
+               $label    = isset( $options[ $label_key ] ) ? trim( $options[ $label_key ] ) : '';
+               $url      = isset( $options[ $url_key ] ) ? trim( $options[ $url_key ] ) : '';
+               $priority = isset( $options[ $priority_key ] ) ? intval( $options[ $priority_key ] ) : $i;
 
-		if ( ! empty( $label ) && ! empty( $url ) ) {
-			$final_url = $url;
+               if ( ! empty( $label ) && ! empty( $url ) ) {
+                       $links[] = [
+                               'label'    => $label,
+                               'url'      => $url,
+                               'priority' => $priority,
+                               'index'    => $i,
+                       ];
+               }
+       }
+
+       usort(
+               $links,
+               function ( $a, $b ) {
+                       if ( $a['priority'] === $b['priority'] ) {
+                               return $a['index'] <=> $b['index'];
+                       }
+
+                       return $a['priority'] <=> $b['priority'];
+               }
+       );
+
+       foreach ( $links as $link ) {
+               $final_url = $link['url'];
             // If URL starts with /wp-admin/ or is just a path segment like 'edit.php'
             // it's likely an admin URL. For consistency, let admin_url() resolve it.
             // However, users might want to link to /wp-login.php?action=logout or other relative paths.
@@ -390,18 +513,17 @@ function kwamul_add_custom_admin_bar_links( $wp_admin_bar ) {
             // If the provided URL is relative like "/wp-admin/edit.php", esc_url will make it site_url() + path.
             // If it's a full URL, it will be used as is after sanitization.
 
-                       $wp_admin_bar->add_node(
-                               [
-                                       'parent' => 'site-name',
-                                       'id'     => "kwamul-custom-link-{$i}",
-                                       'title'  => esc_html( $label ),
-                                       'href'   => esc_url( $final_url ),
-                                       'meta'   => [
-                                               'class' => "kwamul-custom-link kwamul-link-{$i}",
-                                       ],
-                               ]
-                       );
-               }
+               $wp_admin_bar->add_node(
+                       [
+                               'parent' => 'site-name',
+                               'id'     => 'kwamul-custom-link-' . $link['index'],
+                               'title'  => esc_html( $link['label'] ),
+                               'href'   => esc_url( $final_url ),
+                               'meta'   => [
+                                       'class' => 'kwamul-custom-link kwamul-link-' . $link['index'],
+                               ],
+                       ]
+               );
        }
 }
 add_action( 'admin_bar_menu', 'kwamul_add_custom_admin_bar_links', 999 );

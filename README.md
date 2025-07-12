@@ -40,3 +40,9 @@ You should have received a copy of the GNU General Public License along with thi
 
 ### 1.00
 * Initial release.
+
+### 1.1
+* Added separate tab for front-end links.
+
+### 1.2
+* Added priority option for each link and instructions on settings page.
