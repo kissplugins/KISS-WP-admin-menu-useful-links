@@ -397,10 +397,10 @@ function kwamul_options_page_html() {
                 <p><?php esc_html_e( "Use the fields below to define your custom links. You can control the order of the links using the 'Priority' field. A lower number (e.g., 10) will place a link higher in the menu, while a higher number (e.g., 100) will place it lower.", 'kiss-wp-admin-menu-useful-links' ); ?></p>
                <h2 class="nav-tab-wrapper">
                         <a href="<?php echo esc_url( add_query_arg( 'tab', 'backend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'frontend' !== $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="backend">
-                                <?php esc_html_e( 'Backend Links', 'kiss-wp-admin-menu-useful-links' ); ?>
+                                <?php esc_html_e( 'Menu in Front End', 'kiss-wp-admin-menu-useful-links' ); ?>
                         </a>
                         <a href="<?php echo esc_url( add_query_arg( 'tab', 'frontend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'frontend' === $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="frontend">
-                                <?php esc_html_e( 'Frontend Links', 'kiss-wp-admin-menu-useful-links' ); ?>
+                                <?php esc_html_e( 'Menu in Admin', 'kiss-wp-admin-menu-useful-links' ); ?>
                         </a>
                 </h2>
                 <form id="kwamul-options-form" action="options.php" method="post">
