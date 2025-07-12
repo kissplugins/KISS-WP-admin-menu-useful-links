@@ -22,6 +22,7 @@ The first two links are pre-populated with "Posts" (`/wp-admin/edit.php`) and "P
 2.  You will find fields to enter up to 5 custom link labels and their corresponding URLs.
     * **Label:** The text that will be displayed for the link.
     * **URL:** The destination URL. This can be a relative path (e.g., `/wp-admin/users.php`) or a full URL (e.g., `https://example.com/my-page`).
+    * **Priority:** A number that determines the order of the links. A lower number (e.g., 10) will place a link higher in the menu, while a higher number (e.g., 100) will place it lower.
 3.  Enter your desired labels and URLs.
 4.  Click the "Save Links" button.
 5.  Visit the front end of your website while logged in. Hover over your site name in the admin toolbar (top-left) to see your custom links added to the menu.
@@ -37,6 +38,13 @@ You should have received a copy of the GNU General Public License along with thi
 **You are free to use and modify this plugin as per the GPLv2 license. However, it is provided "as-is," and the author(s) accept no liability for any issues, damages, or conflicts that may arise from its use.**
 
 ## Changelog
+
+### 1.3
+* Added an upgrade routine to set a default priority for links from older versions.
+
+### 1.2
+* Added a priority field to control the order of the links.
+* Added instructional text to the settings page.
 
 ### 1.00
 * Initial release.
