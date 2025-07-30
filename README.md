@@ -39,6 +39,10 @@ You should have received a copy of the GNU General Public License along with thi
 
 ## Changelog
 
+### 1.4
+* Added nonce verification and option caching.
+* Improved settings UI and security.
+
 ### 1.3
 * Added an upgrade routine to set a default priority for links from older versions.
 
