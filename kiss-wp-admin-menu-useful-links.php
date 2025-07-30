@@ -3,7 +3,7 @@
  * Plugin Name:       KISS WP admin menu useful links
  * Plugin URI:        https://example.com/kiss-wp-admin-menu-useful-links
  * Description:       Adds custom user-defined links to the bottom of the Site Name menu in the WP admin toolbar on the front end.
- * Version:           1.3
+ * Version:           1.4
  * Author:            KISS Plugins
  * Author URI:        https://example.com/kiss-plugins
  * License:           GPL v2 or later
@@ -17,7 +17,7 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-define( 'KWAMUL_VERSION', '1.3' );
+define( 'KWAMUL_VERSION', '1.4' );
 define( 'KWAMUL_DB_VERSION_OPTION', 'kwamul_db_version' );
 define( 'KWAMUL_OPTION_NAME', 'kwamul_links_option' );
 define( 'KWAMUL_SETTINGS_GROUP', 'kwamul_settings_group' );
@@ -146,111 +146,131 @@ function kwamul_add_admin_menu() {
 add_action( 'admin_menu', 'kwamul_add_admin_menu' );
 
 /**
+ * Retrieves link options with transient caching.
+ *
+ * @param string $option_name Option key to retrieve.
+ * @return array
+ */
+function kwamul_get_cached_options( string $option_name ): array {
+    $transient_key = $option_name . '_transient';
+    $options       = get_transient( $transient_key );
+
+    if ( false === $options ) {
+        $options = get_option( $option_name, [] );
+        set_transient( $transient_key, $options, HOUR_IN_SECONDS );
+    }
+
+    return is_array( $options ) ? $options : [];
+}
+
+/**
+ * Clears cached link options.
+ */
+function kwamul_clear_links_cache(): void {
+    delete_transient( KWAMUL_OPTION_NAME . '_transient' );
+    delete_transient( KWAMUL_FRONTEND_OPTION_NAME . '_transient' );
+}
+add_action( 'update_option_' . KWAMUL_OPTION_NAME, 'kwamul_clear_links_cache' );
+add_action( 'update_option_' . KWAMUL_FRONTEND_OPTION_NAME, 'kwamul_clear_links_cache' );
+
+/**
+ * Registers plugin settings.
+ */
+function kwamul_register_settings(): void {
+    register_setting( KWAMUL_SETTINGS_GROUP, KWAMUL_OPTION_NAME, 'kwamul_sanitize_links_options' );
+    register_setting( KWAMUL_FRONTEND_SETTINGS_GROUP, KWAMUL_FRONTEND_OPTION_NAME, 'kwamul_sanitize_links_options' );
+}
+
+/**
+ * Adds settings sections.
+ */
+function kwamul_add_settings_sections(): void {
+    add_settings_section(
+        'kwamul_main_section',
+        __( 'Configure Custom Links', 'kiss-wp-admin-menu-useful-links' ),
+        'kwamul_settings_section_callback',
+        KWAMUL_SETTINGS_PAGE_SLUG
+    );
+
+    add_settings_section(
+        'kwamul_frontend_section',
+        __( 'Configure Frontend Links', 'kiss-wp-admin-menu-useful-links' ),
+        'kwamul_frontend_settings_section_callback',
+        KWAMUL_FRONTEND_SECTION_PAGE
+    );
+}
+
+/**
+ * Helper to generate link fields.
+ */
+function kwamul_add_link_fields( string $page, string $section, string $option_name, string $prefix = '', bool $frontend = false ): void {
+    for ( $i = 1; $i <= KWAMUL_MAX_LINKS; $i++ ) {
+        add_settings_field(
+            "{$prefix}link_{$i}_label",
+            sprintf( __( 'Link %d Label', 'kiss-wp-admin-menu-useful-links' ), $i ),
+            'kwamul_render_text_field',
+            $page,
+            $section,
+            [
+                'option_name' => $option_name,
+                'field_key'   => "link_{$i}_label",
+                'label_for'   => "{$prefix}link_{$i}_label_id",
+                'description' => sprintf( $frontend ? __( 'Enter the label for frontend link %d.', 'kiss-wp-admin-menu-useful-links' ) : __( 'Enter the label for custom link %d.', 'kiss-wp-admin-menu-useful-links' ), $i ),
+            ]
+        );
+
+        add_settings_field(
+            "{$prefix}link_{$i}_url",
+            sprintf( __( 'Link %d URL', 'kiss-wp-admin-menu-useful-links' ), $i ),
+            'kwamul_render_url_field',
+            $page,
+            $section,
+            [
+                'option_name' => $option_name,
+                'field_key'   => "link_{$i}_url",
+                'label_for'   => "{$prefix}link_{$i}_url_id",
+                'description' => sprintf( $frontend ? __( 'Enter the full URL for frontend link %d.', 'kiss-wp-admin-menu-useful-links' ) : __( 'Enter the full URL (e.g., https://example.com/page or /wp-admin/edit.php) for custom link %d.', 'kiss-wp-admin-menu-useful-links' ), $i ),
+            ]
+        );
+
+        add_settings_field(
+            "{$prefix}link_{$i}_priority",
+            sprintf( __( 'Link %d Priority', 'kiss-wp-admin-menu-useful-links' ), $i ),
+            'kwamul_render_number_field',
+            $page,
+            $section,
+            [
+                'option_name' => $option_name,
+                'field_key'   => "link_{$i}_priority",
+                'label_for'   => "{$prefix}link_{$i}_priority_id",
+                'description' => sprintf( __( 'Enter the priority for link %d (lower numbers appear higher).', 'kiss-wp-admin-menu-useful-links' ), $i ),
+            ]
+        );
+    }
+}
+
+/**
+ * Adds backend link fields.
+ */
+function kwamul_add_backend_fields(): void {
+    kwamul_add_link_fields( KWAMUL_SETTINGS_PAGE_SLUG, 'kwamul_main_section', KWAMUL_OPTION_NAME, 'kwamul_' );
+}
+
+/**
+ * Adds frontend link fields.
+ */
+function kwamul_add_frontend_fields(): void {
+    kwamul_add_link_fields( KWAMUL_FRONTEND_SECTION_PAGE, 'kwamul_frontend_section', KWAMUL_FRONTEND_OPTION_NAME, 'kwamul_front_', true );
+}
+
+/**
  * Initializes plugin settings, sections, and fields.
  */
-function kwamul_settings_init() {
-       register_setting( KWAMUL_SETTINGS_GROUP, KWAMUL_OPTION_NAME, 'kwamul_sanitize_links_options' );
-       register_setting( KWAMUL_FRONTEND_SETTINGS_GROUP, KWAMUL_FRONTEND_OPTION_NAME, 'kwamul_sanitize_links_options' );
-
-       add_settings_section(
-               'kwamul_main_section',
-               __( 'Configure Custom Links', 'kiss-wp-admin-menu-useful-links' ),
-               'kwamul_settings_section_callback',
-               KWAMUL_SETTINGS_PAGE_SLUG
-       );
-
-       add_settings_section(
-               'kwamul_frontend_section',
-               __( 'Configure Frontend Links', 'kiss-wp-admin-menu-useful-links' ),
-               'kwamul_frontend_settings_section_callback',
-               KWAMUL_FRONTEND_SECTION_PAGE
-       );
-
-       for ( $i = 1; $i <= KWAMUL_MAX_LINKS; $i++ ) {
-               add_settings_field(
-                       "kwamul_link_{$i}_label",
-                       sprintf( __( 'Link %d Label', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       'kwamul_render_text_field',
-                       KWAMUL_SETTINGS_PAGE_SLUG,
-                       'kwamul_main_section',
-                       [
-                               'option_name' => KWAMUL_OPTION_NAME,
-                               'field_key'   => "link_{$i}_label",
-                               'label_for'   => "kwamul_link_{$i}_label_id",
-                               'description' => sprintf( __( 'Enter the label for custom link %d.', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       ]
-               );
-
-               add_settings_field(
-                       "kwamul_link_{$i}_url",
-                       sprintf( __( 'Link %d URL', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       'kwamul_render_url_field',
-                       KWAMUL_SETTINGS_PAGE_SLUG,
-                       'kwamul_main_section',
-                       [
-                               'option_name' => KWAMUL_OPTION_NAME,
-                               'field_key'   => "link_{$i}_url",
-                               'label_for'   => "kwamul_link_{$i}_url_id",
-                               'description' => sprintf( __( 'Enter the full URL (e.g., https://example.com/page or /wp-admin/edit.php) for custom link %d.', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       ]
-               );
-
-               add_settings_field(
-                       "kwamul_link_{$i}_priority",
-                       sprintf( __( 'Link %d Priority', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       'kwamul_render_number_field',
-                       KWAMUL_SETTINGS_PAGE_SLUG,
-                       'kwamul_main_section',
-                       [
-                               'option_name' => KWAMUL_OPTION_NAME,
-                               'field_key'   => "link_{$i}_priority",
-                               'label_for'   => "kwamul_link_{$i}_priority_id",
-                               'description' => sprintf( __( 'Enter the priority for custom link %d.', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       ]
-               );
-
-               add_settings_field(
-                       "kwamul_front_link_{$i}_label",
-                       sprintf( __( 'Link %d Label', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       'kwamul_render_text_field',
-                       KWAMUL_FRONTEND_SECTION_PAGE,
-                       'kwamul_frontend_section',
-                       [
-                               'option_name' => KWAMUL_FRONTEND_OPTION_NAME,
-                               'field_key'   => "link_{$i}_label",
-                               'label_for'   => "kwamul_front_link_{$i}_label_id",
-                               'description' => sprintf( __( 'Enter the label for frontend link %d.', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       ]
-               );
-
-               add_settings_field(
-                       "kwamul_front_link_{$i}_url",
-                       sprintf( __( 'Link %d URL', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       'kwamul_render_url_field',
-                       KWAMUL_FRONTEND_SECTION_PAGE,
-                       'kwamul_frontend_section',
-                       [
-                               'option_name' => KWAMUL_FRONTEND_OPTION_NAME,
-                               'field_key'   => "link_{$i}_url",
-                               'label_for'   => "kwamul_front_link_{$i}_url_id",
-                               'description' => sprintf( __( 'Enter the full URL for frontend link %d.', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       ]
-               );
-
-               add_settings_field(
-                       "kwamul_front_link_{$i}_priority",
-                       sprintf( __( 'Link %d Priority', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       'kwamul_render_number_field',
-                       KWAMUL_FRONTEND_SECTION_PAGE,
-                       'kwamul_frontend_section',
-                       [
-                               'option_name' => KWAMUL_FRONTEND_OPTION_NAME,
-                               'field_key'   => "link_{$i}_priority",
-                               'label_for'   => "kwamul_front_link_{$i}_priority_id",
-                               'description' => sprintf( __( 'Enter the priority for frontend link %d.', 'kiss-wp-admin-menu-useful-links' ), $i ),
-                       ]
-               );
-       }
+function kwamul_settings_init(): void {
+    kwamul_register_settings();
+    kwamul_add_settings_sections();
+    kwamul_add_backend_fields();
+    kwamul_add_frontend_fields();
 }
 add_action( 'admin_init', 'kwamul_settings_init' );
 
@@ -259,7 +279,7 @@ add_action( 'admin_init', 'kwamul_settings_init' );
  *
  * @param array $args Arguments passed to the callback.
  */
-function kwamul_settings_section_callback( $args ) {
+function kwamul_settings_section_callback( array $args ): void {
 	?>
 	<p id="<?php echo esc_attr( $args['id'] ); ?>">
 		<?php esc_html_e( 'Define up to 5 custom labels and URLs to be added to the Site Name menu in the admin toolbar (front-end view).', 'kiss-wp-admin-menu-useful-links' ); ?>
@@ -267,7 +287,7 @@ function kwamul_settings_section_callback( $args ) {
 	<?php
 }
 
-function kwamul_frontend_settings_section_callback( $args ) {
+function kwamul_frontend_settings_section_callback( array $args ): void {
        ?>
        <p id="<?php echo esc_attr( $args['id'] ); ?>">
                <?php esc_html_e( 'Define up to 5 front-end page links to be added under the Visit Site menu when viewing the admin dashboard.', 'kiss-wp-admin-menu-useful-links' ); ?>
@@ -280,7 +300,7 @@ function kwamul_frontend_settings_section_callback( $args ) {
  *
  * @param array $args Arguments for the field.
  */
-function kwamul_render_text_field( $args ) {
+function kwamul_render_text_field( array $args ): void {
 	$options     = get_option( $args['option_name'], [] ); // Default to empty array if option not found
 	$field_key   = $args['field_key'];
 	$value       = isset( $options[ $field_key ] ) ? $options[ $field_key ] : '';
@@ -306,7 +326,7 @@ function kwamul_render_text_field( $args ) {
 // text input and sanitize_text_field() to allow relative paths. Do NOT
 // refactor this to use <input type="url"> or esc_url_raw unless explicitly
 // requested.
-function kwamul_render_url_field( $args ) {
+function kwamul_render_url_field( array $args ): void {
         $options     = get_option( $args['option_name'], [] ); // Default to empty array
         $field_key   = $args['field_key'];
         $value       = isset( $options[ $field_key ] ) ? $options[ $field_key ] : '';
@@ -318,6 +338,7 @@ function kwamul_render_url_field( $args ) {
                    value="<?php echo esc_attr( $value ); ?>"
                    class="regular-text"
                    placeholder="e.g., /wp-admin/edit.php or https://example.com">
+        <a class="button" href="<?php echo esc_url( $value ); ?>" target="_blank" style="margin-left:5px;"><?php esc_html_e( 'Test Link', 'kiss-wp-admin-menu-useful-links' ); ?></a>
         <?php if ( ! empty( $description ) ) : ?>
                 <p class="description"><?php echo esc_html( $description ); ?></p>
         <?php endif; ?>
@@ -329,7 +350,7 @@ function kwamul_render_url_field( $args ) {
  *
  * @param array $args Arguments for the field.
  */
-function kwamul_render_number_field( $args ) {
+function kwamul_render_number_field( array $args ): void {
     $options     = get_option( $args['option_name'], [] ); // Default to empty array
     $field_key   = $args['field_key'];
     $value       = isset( $options[ $field_key ] ) ? $options[ $field_key ] : '';
@@ -352,8 +373,16 @@ function kwamul_render_number_field( $args ) {
  * @param array $input The input array from the settings form.
  * @return array The sanitized array.
  */
-function kwamul_sanitize_links_options( $input ) {
-	$sanitized_input = [];
+/**
+ * @param array $input Raw input.
+ * @return array|false
+ */
+function kwamul_sanitize_links_options( array $input ) {
+        if ( ! isset( $_POST['kwamul_nonce'] ) || ! wp_verify_nonce( $_POST['kwamul_nonce'], 'kwamul_save_settings' ) ) {
+                return false;
+        }
+
+        $sanitized_input = [];
 	if ( is_array( $input ) ) {
        for ( $i = 1; $i <= KWAMUL_MAX_LINKS; $i++ ) {
                $label_key = "link_{$i}_label";
@@ -412,19 +441,30 @@ function kwamul_options_page_html() {
                                 settings_fields( KWAMUL_SETTINGS_GROUP );
                                 do_settings_sections( KWAMUL_SETTINGS_PAGE_SLUG );
                         }
+                        wp_nonce_field('kwamul_save_settings', 'kwamul_nonce');
                         // Use a custom name/id so form.submit() remains callable.
                         submit_button( __( 'Save Links', 'kiss-wp-admin-menu-useful-links' ), 'primary', 'kwamul_submit' );
                         ?>
                 </form>
                 <script>
                 document.addEventListener('DOMContentLoaded', function() {
+                        function safeSet(key, value) {
+                                try { if (window.localStorage) { localStorage.setItem(key, value); } } catch (e) {}
+                        }
+                        function safeGet(key) {
+                                try { return window.localStorage ? localStorage.getItem(key) : null; } catch (e) { return null; }
+                        }
+                        function safeRemove(key) {
+                                try { if (window.localStorage) { localStorage.removeItem(key); } } catch (e) {}
+                        }
+
                         var tabs = document.querySelectorAll('.kwamul-tab');
                         var form = document.getElementById('kwamul-options-form');
                         var submitBtn = document.getElementById('kwamul_submit');
 
                         if (submitBtn) {
                                 submitBtn.addEventListener('click', function() {
-                                        localStorage.setItem('kwamul_last_save', Date.now().toString());
+                                        safeSet('kwamul_last_save', Date.now().toString());
                                 });
                         }
 
@@ -440,23 +480,23 @@ function kwamul_options_page_html() {
                                 tab.addEventListener('click', function(e) {
                                         e.preventDefault();
                                         var nextTab = this.getAttribute('data-tab');
-                                        localStorage.setItem('kwamul_next_tab', nextTab);
+                                        safeSet('kwamul_next_tab', nextTab);
 
-                                        var lastSave = parseInt(localStorage.getItem('kwamul_last_save') || '0', 10);
+                                        var lastSave = parseInt(safeGet('kwamul_last_save') || '0', 10);
                                         var now = Date.now();
 
                                         if (!form || now - lastSave < 5000) {
                                                 changeTab(nextTab);
                                         } else {
-                                                localStorage.setItem('kwamul_last_save', now.toString());
+                                                safeSet('kwamul_last_save', now.toString());
                                                 form.submit();
                                         }
                                 });
                         });
 
-                        var nextTab = localStorage.getItem('kwamul_next_tab');
+                        var nextTab = safeGet('kwamul_next_tab');
                         if (nextTab) {
-                                localStorage.removeItem('kwamul_next_tab');
+                                safeRemove('kwamul_next_tab');
                                 changeTab(nextTab);
                         }
                 });
@@ -470,12 +510,12 @@ function kwamul_options_page_html() {
  *
  * @param WP_Admin_Bar $wp_admin_bar The WP_Admin_Bar instance.
  */
-function kwamul_add_custom_admin_bar_links( $wp_admin_bar ) {
+function kwamul_add_custom_admin_bar_links( WP_Admin_Bar $wp_admin_bar ): void {
     if ( ! is_admin_bar_showing() ) {
         return;
     }
 
-    $options = is_admin() ? get_option( KWAMUL_FRONTEND_OPTION_NAME, [] ) : get_option( KWAMUL_OPTION_NAME, [] );
+    $options = is_admin() ? kwamul_get_cached_options( KWAMUL_FRONTEND_OPTION_NAME ) : kwamul_get_cached_options( KWAMUL_OPTION_NAME );
     $site_name_node = $wp_admin_bar->get_node('site-name');
 
     // Ensure the 'site-name' node exists before trying to add children to it.
@@ -516,7 +556,7 @@ function kwamul_add_custom_admin_bar_links( $wp_admin_bar ) {
                 'title'  => esc_html( $link['title'] ),
                 'href'   => esc_url( $link['href'] ),
                 'meta'   => [
-                    'class' => "kwamul-custom-link kwamul-link-{$i}",
+                    'class' => "kwamul-custom-link {$link['id']}",
                 ],
             ]
         );
