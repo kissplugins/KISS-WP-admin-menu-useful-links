@@ -3,7 +3,7 @@
  * Plugin Name:       KISS WP admin menu useful links
  * Plugin URI:        https://example.com/kiss-wp-admin-menu-useful-links
  * Description:       Adds custom user-defined links to the bottom of the Site Name menu in the WP admin toolbar on the front end.
- * Version:           1.4
+ * Version:           1.5
  * Author:            KISS Plugins
  * Author URI:        https://example.com/kiss-plugins
  * License:           GPL v2 or later
@@ -17,7 +17,7 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-define( 'KWAMUL_VERSION', '1.4' );
+define( 'KWAMUL_VERSION', '1.5' );
 define( 'KWAMUL_DB_VERSION_OPTION', 'kwamul_db_version' );
 define( 'KWAMUL_OPTION_NAME', 'kwamul_links_option' );
 define( 'KWAMUL_SETTINGS_GROUP', 'kwamul_settings_group' );
@@ -144,6 +144,24 @@ function kwamul_add_admin_menu() {
 	);
 }
 add_action( 'admin_menu', 'kwamul_add_admin_menu' );
+
+/**
+ * Enqueues admin scripts and styles.
+ */
+function kwamul_admin_enqueue_scripts( $hook_suffix ) {
+	if ( 'settings_page_' . KWAMUL_SETTINGS_PAGE_SLUG !== $hook_suffix ) {
+		return;
+	}
+	
+	wp_enqueue_script(
+		'kwamul-admin-js',
+		plugins_url( 'assets/admin.js', __FILE__ ),
+		array(),
+		KWAMUL_VERSION,
+		true
+	);
+}
+add_action( 'admin_enqueue_scripts', 'kwamul_admin_enqueue_scripts' );
 
 /**
  * Retrieves link options with transient caching.
@@ -412,7 +430,13 @@ function kwamul_options_page_html() {
         if ( ! current_user_can( 'manage_options' ) ) {
                 return;
         }
-       $current_tab = ( isset( $_GET['tab'] ) && 'frontend' === $_GET['tab'] ) ? 'frontend' : 'backend';
+        
+        // Verify nonce for form submissions
+        if ( isset( $_POST['kwamul_submit'] ) && ! wp_verify_nonce( $_POST['kwamul_nonce'], 'kwamul_settings_nonce' ) ) {
+                wp_die( __( 'Security check failed. Please try again.', 'kiss-wp-admin-menu-useful-links' ) );
+        }
+        
+       $current_tab = ( isset( $_GET['tab'] ) && 'frontend' === sanitize_text_field( $_GET['tab'] ) ) ? 'frontend' : 'backend';
         ?>
         <div class="wrap">
                 <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
@@ -427,6 +451,8 @@ function kwamul_options_page_html() {
                 </h2>
                 <form id="kwamul-options-form" action="options.php" method="post">
                         <?php
+                        wp_nonce_field( 'kwamul_settings_nonce', 'kwamul_nonce' );
+                        
                         if ( 'frontend' === $current_tab ) {
                                 settings_fields( KWAMUL_FRONTEND_SETTINGS_GROUP );
                                 do_settings_sections( KWAMUL_FRONTEND_SECTION_PAGE );
@@ -438,61 +464,6 @@ function kwamul_options_page_html() {
                         submit_button( __( 'Save Links', 'kiss-wp-admin-menu-useful-links' ), 'primary', 'kwamul_submit' );
                         ?>
                 </form>
-                <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                        function safeSet(key, value) {
-                                try { if (window.localStorage) { localStorage.setItem(key, value); } } catch (e) {}
-                        }
-                        function safeGet(key) {
-                                try { return window.localStorage ? localStorage.getItem(key) : null; } catch (e) { return null; }
-                        }
-                        function safeRemove(key) {
-                                try { if (window.localStorage) { localStorage.removeItem(key); } } catch (e) {}
-                        }
-
-                        var tabs = document.querySelectorAll('.kwamul-tab');
-                        var form = document.getElementById('kwamul-options-form');
-                        var submitBtn = document.getElementById('kwamul_submit');
-
-                        if (submitBtn) {
-                                submitBtn.addEventListener('click', function() {
-                                        safeSet('kwamul_last_save', Date.now().toString());
-                                });
-                        }
-
-                        function changeTab(target) {
-                                var url = new URL(window.location.href);
-                                if (url.searchParams.get('tab') !== target) {
-                                        url.searchParams.set('tab', target);
-                                        window.location.href = url.toString();
-                                }
-                        }
-
-                        tabs.forEach(function(tab) {
-                                tab.addEventListener('click', function(e) {
-                                        e.preventDefault();
-                                        var nextTab = this.getAttribute('data-tab');
-                                        safeSet('kwamul_next_tab', nextTab);
-
-                                        var lastSave = parseInt(safeGet('kwamul_last_save') || '0', 10);
-                                        var now = Date.now();
-
-                                        if (!form || now - lastSave < 5000) {
-                                                changeTab(nextTab);
-                                        } else {
-                                                safeSet('kwamul_last_save', now.toString());
-                                                form.submit();
-                                        }
-                                });
-                        });
-
-                        var nextTab = safeGet('kwamul_next_tab');
-                        if (nextTab) {
-                                safeRemove('kwamul_next_tab');
-                                changeTab(nextTab);
-                        }
-                });
-                </script>
         </div>
         <?php
 }
