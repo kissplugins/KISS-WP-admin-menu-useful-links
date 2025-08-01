@@ -39,6 +39,13 @@ You should have received a copy of the GNU General Public License along with thi
 
 ## Changelog
 
+### 1.5
+* Fixed WordPress coding standards compliance
+* Added proper nonce verification for security
+* Moved JavaScript to separate file with proper enqueuing
+* Fixed direct $_GET usage with sanitization
+* Improved type hints and function signatures
+
 ### 1.4
 * Added option caching and safer localStorage handling.
 * Improved settings UI and security.
