@@ -3,7 +3,7 @@
  * Plugin Name:       KISS WP admin menu useful links
  * Plugin URI:        https://example.com/kiss-wp-admin-menu-useful-links
  * Description:       Adds custom user-defined links to the bottom of the Site Name menu in the WP admin toolbar on the front end.
- * Version:           1.5
+ * Version:           1.6
  * Author:            KISS Plugins
  * Author URI:        https://example.com/kiss-plugins
  * License:           GPL v2 or later
@@ -17,7 +17,7 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-define( 'KWAMUL_VERSION', '1.5' );
+define( 'KWAMUL_VERSION', '1.6' );
 define( 'KWAMUL_DB_VERSION_OPTION', 'kwamul_db_version' );
 define( 'KWAMUL_OPTION_NAME', 'kwamul_links_option' );
 define( 'KWAMUL_SETTINGS_GROUP', 'kwamul_settings_group' );
@@ -386,14 +386,89 @@ function kwamul_render_number_field( array $args ): void {
 }
 
 /**
+ * Validates and sanitizes URLs while supporting relative paths.
+ * Prevents XSS via javascript:, data:, and other dangerous protocols.
+ *
+ * @param string $url The URL to validate
+ * @return string Sanitized URL or empty string if invalid
+ */
+function kwamul_validate_url( $url ) {
+    // First, sanitize the input
+    $url = sanitize_text_field( trim( $url ) );
+
+    // Allow empty URLs
+    if ( empty( $url ) ) {
+        return '';
+    }
+
+    // Define allowed protocols (no javascript:, data:, vbscript:, etc.)
+    $allowed_protocols = array( 'http', 'https' );
+
+    // Check if it's a relative path (starts with /)
+    if ( strpos( $url, '/' ) === 0 ) {
+        // Relative path - validate it doesn't contain dangerous patterns
+
+        // Block any attempts to use protocols in relative paths
+        if ( preg_match( '/^\/[a-zA-Z][a-zA-Z0-9+.-]*:/', $url ) ) {
+            return ''; // Reject URLs like "/javascript:alert(1)"
+        }
+
+        // Additional security: block common XSS patterns in paths
+        $dangerous_patterns = array(
+            '/javascript:/i',
+            '/data:/i',
+            '/vbscript:/i',
+            '/onload=/i',
+            '/onerror=/i',
+            '/onclick=/i',
+            '/<script/i',
+            '/eval\(/i'
+        );
+
+        foreach ( $dangerous_patterns as $pattern ) {
+            if ( preg_match( $pattern, $url ) ) {
+                return '';
+            }
+        }
+
+        // Validate that it's a reasonable path structure
+        if ( ! preg_match( '/^\/[a-zA-Z0-9\/_.-]*(\?[a-zA-Z0-9&=_.-]*)?$/', $url ) ) {
+            return '';
+        }
+
+        return $url;
+    }
+
+    // For absolute URLs, use WordPress's built-in validation
+    $validated_url = esc_url_raw( $url, $allowed_protocols );
+
+    // Double-check that esc_url_raw didn't strip the protocol due to our restrictions
+    if ( empty( $validated_url ) && ! empty( $url ) ) {
+        // If esc_url_raw returned empty but we had a URL, it was likely rejected
+        return '';
+    }
+
+    // Additional check: ensure the validated URL actually matches expected patterns
+    if ( ! preg_match( '/^https?:\/\/[a-zA-Z0-9.-]+/', $validated_url ) ) {
+        return '';
+    }
+
+    return $validated_url;
+}
+
+/**
  * Sanitizes the link options before saving.
  *
  * @param array $input Raw input from the settings form.
  * @return array Sanitized options.
  */
 function kwamul_sanitize_links_options( array $input ): array {
+    // Verify nonce for security - CRITICAL SECURITY FIX
+    if ( ! wp_verify_nonce( $_POST['kwamul_nonce'] ?? '', 'kwamul_settings_nonce' ) ) {
+        wp_die( __( 'Security check failed. Please try again.', 'kiss-wp-admin-menu-useful-links' ) );
+    }
 
-        $sanitized_input = [];
+    $sanitized_input = [];
 	if ( is_array( $input ) ) {
        for ( $i = 1; $i <= KWAMUL_MAX_LINKS; $i++ ) {
                $label_key = "link_{$i}_label";
@@ -406,12 +481,12 @@ function kwamul_sanitize_links_options( array $input ): array {
 				$sanitized_input[ $label_key ] = ''; // Ensure key exists
 			}
 
-                       if ( isset( $input[ $url_key ] ) ) {
-                               // NOTE: Using sanitize_text_field to allow relative paths. Do not refactor.
-                               $sanitized_input[ $url_key ] = sanitize_text_field( $input[ $url_key ] );
-                       } else {
-                               $sanitized_input[ $url_key ] = ''; // Ensure key exists
-                       }
+            // Use secure URL validation while maintaining relative path support
+            if ( isset( $input[ $url_key ] ) ) {
+                $sanitized_input[ $url_key ] = kwamul_validate_url( $input[ $url_key ] );
+            } else {
+                $sanitized_input[ $url_key ] = ''; // Ensure key exists
+            }
 
             if ( isset( $input[ $priority_key ] ) ) {
                 $sanitized_input[ $priority_key ] = absint( $input[ $priority_key ] );
@@ -436,7 +511,7 @@ function kwamul_options_page_html() {
                 wp_die( __( 'Security check failed. Please try again.', 'kiss-wp-admin-menu-useful-links' ) );
         }
         
-       $current_tab = ( isset( $_GET['tab'] ) && 'frontend' === sanitize_text_field( $_GET['tab'] ) ) ? 'frontend' : 'backend';
+       $current_tab = sanitize_text_field( $_GET['tab'] ?? '' ) === 'frontend' ? 'frontend' : 'backend';
         ?>
         <div class="wrap">
                 <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
