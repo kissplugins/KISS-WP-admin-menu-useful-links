@@ -152,7 +152,7 @@ function kwamul_admin_enqueue_scripts( $hook_suffix ) {
 	if ( 'settings_page_' . KWAMUL_SETTINGS_PAGE_SLUG !== $hook_suffix ) {
 		return;
 	}
-	
+
 	wp_enqueue_script(
 		'kwamul-admin-js',
 		plugins_url( 'assets/admin.js', __FILE__ ),
@@ -160,6 +160,25 @@ function kwamul_admin_enqueue_scripts( $hook_suffix ) {
 		KWAMUL_VERSION,
 		true
 	);
+
+	// Add inline CSS for markdown content styling
+	$custom_css = '
+		.kwamul-markdown-content {
+			max-width: 100%;
+			margin-top: 20px;
+		}
+		.kwamul-markdown-content pre {
+			max-height: 600px;
+			overflow-y: auto;
+			font-family: Consolas, Monaco, "Courier New", monospace;
+			font-size: 13px;
+			line-height: 1.4;
+		}
+		.kwamul-markdown-content .notice {
+			margin: 20px 0;
+		}
+	';
+	wp_add_inline_style( 'wp-admin', $custom_css );
 }
 add_action( 'admin_enqueue_scripts', 'kwamul_admin_enqueue_scripts' );
 
@@ -388,6 +407,7 @@ function kwamul_render_number_field( array $args ): void {
 /**
  * Validates and sanitizes URLs while supporting relative paths.
  * Prevents XSS via javascript:, data:, and other dangerous protocols.
+ * Supports URL fragments (anchors) with # character.
  *
  * @param string $url The URL to validate
  * @return string Sanitized URL or empty string if invalid
@@ -431,8 +451,8 @@ function kwamul_validate_url( $url ) {
             }
         }
 
-        // Validate that it's a reasonable path structure
-        if ( ! preg_match( '/^\/[a-zA-Z0-9\/_.-]*(\?[a-zA-Z0-9&=_.-]*)?$/', $url ) ) {
+        // Validate that it's a reasonable path structure (including fragments with #)
+        if ( ! preg_match( '/^\/[a-zA-Z0-9\/_.-]*(\?[a-zA-Z0-9&=_.-]*)?(#[a-zA-Z0-9_-]*)?$/', $url ) ) {
             return '';
         }
 
@@ -499,46 +519,107 @@ function kwamul_sanitize_links_options( array $input ): array {
 }
 
 /**
+ * Renders markdown files using the KISS Markdown Viewer plugin or fallback.
+ *
+ * @param string $filename The markdown filename to render.
+ * @return string The rendered HTML content.
+ */
+function kwamul_render_markdown_file( $filename ) {
+    // Security: Only allow specific markdown files and sanitize filename
+    $allowed_files = array( 'README.md', 'CHANGELOG.md' );
+    if ( ! in_array( $filename, $allowed_files, true ) ) {
+        return '<div class="notice notice-error"><p>' . esc_html__( 'Access to this file is not allowed.', 'kiss-wp-admin-menu-useful-links' ) . '</p></div>';
+    }
+
+    $markdown_file = plugin_dir_path( __FILE__ ) . sanitize_file_name( $filename );
+
+    // Check if KISS Markdown Viewer plugin function exists
+    if ( function_exists( 'kiss_mdv_render_file' ) ) {
+        $html = kiss_mdv_render_file( $markdown_file );
+    } else {
+        // Fallback to plain text rendering
+        if ( file_exists( $markdown_file ) ) {
+            $content = file_get_contents( $markdown_file );
+            $html    = '<pre style="white-space: pre-wrap; word-wrap: break-word; background: #f9f9f9; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">' . esc_html( $content ) . '</pre>';
+        } else {
+            $html = '<div class="notice notice-error"><p>' . sprintf(
+                /* translators: %s: filename */
+                esc_html__( 'Markdown file "%s" not found.', 'kiss-wp-admin-menu-useful-links' ),
+                esc_html( $filename )
+            ) . '</p></div>';
+        }
+    }
+
+    return $html;
+}
+
+/**
  * Renders the HTML for the options page.
  */
 function kwamul_options_page_html() {
         if ( ! current_user_can( 'manage_options' ) ) {
                 return;
         }
-        
+
         // Verify nonce for form submissions
         if ( isset( $_POST['kwamul_submit'] ) && ! wp_verify_nonce( $_POST['kwamul_nonce'], 'kwamul_settings_nonce' ) ) {
                 wp_die( __( 'Security check failed. Please try again.', 'kiss-wp-admin-menu-useful-links' ) );
         }
-        
-       $current_tab = sanitize_text_field( $_GET['tab'] ?? '' ) === 'frontend' ? 'frontend' : 'backend';
+
+        // Determine current tab - expanded to include new tabs
+        $allowed_tabs = array( 'backend', 'frontend', 'readme', 'changelog' );
+        $current_tab = sanitize_text_field( $_GET['tab'] ?? '' );
+        if ( ! in_array( $current_tab, $allowed_tabs, true ) ) {
+            $current_tab = 'backend'; // Default tab
+        }
         ?>
         <div class="wrap">
-                <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
-                <p><?php esc_html_e( "Use the fields below to define your custom links. You can control the order of the links using the 'Priority' field. A lower number (e.g., 10) will place a link higher in the menu, while a higher number (e.g., 100) will place it lower.", 'kiss-wp-admin-menu-useful-links' ); ?></p>
+                <h1><?php echo esc_html( get_admin_page_title() . ' v' . KWAMUL_VERSION ); ?></h1>
+
+                <?php if ( in_array( $current_tab, array( 'backend', 'frontend' ), true ) ) : ?>
+                    <p><?php esc_html_e( "Use the fields below to define your custom links. You can control the order of the links using the 'Priority' field. A lower number (e.g., 10) will place a link higher in the menu, while a higher number (e.g., 100) will place it lower.", 'kiss-wp-admin-menu-useful-links' ); ?></p>
+                <?php endif; ?>
+
                <h2 class="nav-tab-wrapper">
-                        <a href="<?php echo esc_url( add_query_arg( 'tab', 'backend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'frontend' !== $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="backend">
+                        <a href="<?php echo esc_url( add_query_arg( 'tab', 'backend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'backend' === $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="backend">
                                 <?php esc_html_e( 'Menu in Front End', 'kiss-wp-admin-menu-useful-links' ); ?>
                         </a>
                         <a href="<?php echo esc_url( add_query_arg( 'tab', 'frontend', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'frontend' === $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="frontend">
                                 <?php esc_html_e( 'Menu in Admin', 'kiss-wp-admin-menu-useful-links' ); ?>
                         </a>
+                        <a href="<?php echo esc_url( add_query_arg( 'tab', 'readme', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'readme' === $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="readme">
+                                <?php esc_html_e( 'Read Me', 'kiss-wp-admin-menu-useful-links' ); ?>
+                        </a>
+                        <a href="<?php echo esc_url( add_query_arg( 'tab', 'changelog', menu_page_url( KWAMUL_SETTINGS_PAGE_SLUG, false ) ) ); ?>" class="nav-tab kwamul-tab <?php echo 'changelog' === $current_tab ? 'nav-tab-active' : ''; ?>" data-tab="changelog">
+                                <?php esc_html_e( 'Changelog', 'kiss-wp-admin-menu-useful-links' ); ?>
+                        </a>
                 </h2>
-                <form id="kwamul-options-form" action="options.php" method="post">
-                        <?php
-                        wp_nonce_field( 'kwamul_settings_nonce', 'kwamul_nonce' );
-                        
-                        if ( 'frontend' === $current_tab ) {
-                                settings_fields( KWAMUL_FRONTEND_SETTINGS_GROUP );
-                                do_settings_sections( KWAMUL_FRONTEND_SECTION_PAGE );
-                        } else {
-                                settings_fields( KWAMUL_SETTINGS_GROUP );
-                                do_settings_sections( KWAMUL_SETTINGS_PAGE_SLUG );
-                        }
-                        // Use a custom name/id so form.submit() remains callable.
-                        submit_button( __( 'Save Links', 'kiss-wp-admin-menu-useful-links' ), 'primary', 'kwamul_submit' );
-                        ?>
-                </form>
+
+                <?php if ( in_array( $current_tab, array( 'backend', 'frontend' ), true ) ) : ?>
+                    <form id="kwamul-options-form" action="options.php" method="post">
+                            <?php
+                            wp_nonce_field( 'kwamul_settings_nonce', 'kwamul_nonce' );
+
+                            if ( 'frontend' === $current_tab ) {
+                                    settings_fields( KWAMUL_FRONTEND_SETTINGS_GROUP );
+                                    do_settings_sections( KWAMUL_FRONTEND_SECTION_PAGE );
+                            } else {
+                                    settings_fields( KWAMUL_SETTINGS_GROUP );
+                                    do_settings_sections( KWAMUL_SETTINGS_PAGE_SLUG );
+                            }
+                            // Use a custom name/id so form.submit() remains callable.
+                            submit_button( __( 'Save Links', 'kiss-wp-admin-menu-useful-links' ), 'primary', 'kwamul_submit' );
+                            ?>
+                    </form>
+                <?php elseif ( 'readme' === $current_tab ) : ?>
+                    <div class="kwamul-markdown-content">
+                        <?php echo kwamul_render_markdown_file( 'README.md' ); ?>
+                    </div>
+                <?php elseif ( 'changelog' === $current_tab ) : ?>
+                    <div class="kwamul-markdown-content">
+                        <?php echo kwamul_render_markdown_file( 'CHANGELOG.md' ); ?>
+                    </div>
+                <?php endif; ?>
         </div>
         <?php
 }

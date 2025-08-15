@@ -20,6 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **IMPROVED**: Superglobal access pattern
   - Updated `$_GET` access to use null coalescing operator
   - Follows WordPress coding standards more closely
+- **FIXED**: URL validation now supports fragment identifiers (# anchors)
+  - URLs like `/wp-admin/edit.php#posts-filter` now work correctly
+  - Maintains security while allowing legitimate URL fragments
+
+### Added
+- **NEW**: Dynamic version number in admin page title
+  - Page title now shows current plugin version (e.g., "KISS Admin Useful Links v1.6")
+- **NEW**: README tab in admin interface
+  - View plugin documentation directly in WordPress admin
+  - Uses KISS Markdown Viewer plugin if available, falls back to styled text
+- **NEW**: Changelog tab in admin interface
+  - View version history and changes directly in WordPress admin
+  - Integrated markdown rendering with security controls
 
 ### Security
 - All critical and high-priority security issues resolved
