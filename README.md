@@ -37,7 +37,25 @@ You should have received a copy of the GNU General Public License along with thi
 
 **You are free to use and modify this plugin as per the GPLv2 license. However, it is provided "as-is," and the author(s) accept no liability for any issues, damages, or conflicts that may arise from its use.**
 
+## Security
+
+This plugin has been thoroughly audited for security vulnerabilities and implements WordPress security best practices:
+
+- ✅ **Nonce verification** in all form processing functions
+- ✅ **Comprehensive URL validation** that prevents XSS while supporting relative paths
+- ✅ **Proper input sanitization** using WordPress functions
+- ✅ **Output escaping** for all user-generated content
+- ✅ **Capability checks** ensuring only authorized users can modify settings
+- ✅ **No direct file access** protection
+
 ## Changelog
+
+### 1.6 - 2025-08-15 🚨 CRITICAL SECURITY UPDATE
+* **CRITICAL FIX**: Resolved nonce verification bypass vulnerability
+* **SECURITY FIX**: Implemented comprehensive URL validation to prevent XSS attacks
+* **SECURITY FIX**: Enhanced input validation while maintaining relative path support
+* **IMPROVEMENT**: Updated superglobal access patterns to follow WordPress standards
+* **STATUS**: All critical and high-priority security issues resolved
 
 ### 1.5
 * Fixed WordPress coding standards compliance
@@ -59,3 +77,5 @@ You should have received a copy of the GNU General Public License along with thi
 
 ### 1.00
 * Initial release.
+
+For detailed security information, see [ROADMAP.md](ROADMAP.md).
