@@ -17,6 +17,18 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
+// Include the Plugin Update Checker
+require_once plugin_dir_path( __FILE__ ) . 'lib/plugin-update-checker/plugin-update-checker.php';
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+$update_checker = PucFactory::buildUpdateChecker(
+    'https://github.com/kissplugins/KISS-WP-admin-menu-useful-links',
+    __FILE__,
+    'kiss-wp-admin-menu-useful-links'
+);
+// Optional: Set the branch that contains the stable release.
+$update_checker->setBranch( 'main' );
+
 define( 'KWAMUL_VERSION', '1.6' );
 define( 'KWAMUL_DB_VERSION_OPTION', 'kwamul_db_version' );
 define( 'KWAMUL_OPTION_NAME', 'kwamul_links_option' );
