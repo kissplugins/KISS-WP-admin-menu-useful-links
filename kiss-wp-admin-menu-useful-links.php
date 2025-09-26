@@ -3,7 +3,7 @@
  * Plugin Name:       KISS WP admin menu useful links
  * Plugin URI:        https://example.com/kiss-wp-admin-menu-useful-links
  * Description:       Adds custom user-defined links to the bottom of the Site Name menu in the WP admin toolbar on the front end.
- * Version:           1.6
+ * Version:           1.7
  * Author:            KISS Plugins
  * Author URI:        https://example.com/kiss-plugins
  * License:           GPL v2 or later
